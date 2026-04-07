@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "CGPA Calculator",
+    "slug": "cgpa-calculator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "sdkVersion": "49.0.0",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "44a9298f-19e5-4d4e-a21a-eef7d31f1e7a"
+      }
+    },
+    "android": {
+      "package": "com.itzbigjoe.cgpacalculator"
+    }
+  }
+}

@@ -1,0 +1,326 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Wide+Latin:wght@400;700&display=swap');
+
+:root {
+  --primary: #0056b3;
+  --secondary: #007bff;
+  --light-bg: #f4f4f9;
+  --form-bg: #eaf7fa;
+  --success: #28a745;
+  --danger: #dc3545;
+  --radius: 10px;
+  --transition: 0.25s ease;
+}
+
+/* ==========================
+   GENERAL BODY STYLING
+========================== */
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--light-bg);
+  margin: 0;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ==========================
+   HEADER SECTION
+========================== */
+.header-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 1rem auto;
+  text-align: center;
+  width: 100%;
+  max-width: 800px;
+}
+
+@media (min-width: 768px) {
+  .header-row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0 2rem;
+  }
+}
+
+.header-row h1 {
+  font-size: clamp(1.8rem, 2vw + 1rem, 3rem);
+  color: var(--primary);
+  font-family: 'Roboto Condensed', sans-serif;
+}
+
+.header-row span {
+  font-family: 'Wide Latin', serif;
+}
+
+.history-button {
+  background-color: #fff;
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  padding: 0.6em 1.2em;
+  border-radius: var(--radius);
+  font-weight: bold;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.history-button:hover {
+  background-color: var(--primary);
+  color: white;
+}
+
+/* ==========================
+   FORM SECTION
+========================== */
+form {
+  background: var(--form-bg);
+  width: 100%;
+  max-width: 650px;
+  margin: 0 auto;
+  padding: 1.2rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+}
+
+legend {
+  font-weight: bold;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+}
+
+.schooltype {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.schooltype .option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+input[type="radio"] {
+  accent-color: var(--secondary);
+}
+
+/* ==========================
+   INPUT + FORM ROWS
+========================== */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.form-row label {
+  flex: 1 1 100px;
+  font-weight: bold;
+  color: #333;
+}
+
+.form-row input,
+.form-row select {
+  flex: 1 1 160px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-size: 1rem;
+  background-color: white;
+}
+
+input:focus,
+select:focus,
+button:focus {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+}
+
+/* ==========================
+   BUTTONS
+========================== */
+button {
+  display: inline-block;
+  margin-top: 10px;
+  background-color: var(--secondary);
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+button:hover {
+  background-color: var(--primary);
+}
+
+#buttonRow {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+#buttonRow button {
+  flex: 1 1 150px;
+  max-width: 250px;
+}
+
+/* ==========================
+   RESULT BOX
+========================== */
+#resultBox {
+  display: none;
+  width: 100%;
+  max-width: 650px;
+  margin: 1.5rem auto;
+  background-color: white;
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+#cgpaResult {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  background-color: #e8f8f5;
+  color: #0a3d62;
+  border-radius: 8px;
+  border: 2px solid #0a3d62;
+  resize: none;
+}
+
+/* ==========================
+   MODALS + POPUPS
+========================== */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: #fff;
+  margin: 10% auto;
+  padding: 20px;
+  width: 90%;
+  max-width: 420px;
+  border-radius: var(--radius);
+  border: 2px solid var(--primary);
+  text-align: center;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.modal-buttons button:first-child {
+  background-color: var(--secondary);
+}
+
+.modal-buttons button:last-child {
+  background-color: var(--danger);
+}
+
+#successPopup {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  background-color: var(--success);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  display: none;
+  z-index: 3000;
+}
+
+/* ==========================
+   HISTORY MODAL
+========================== */
+#historyList pre {
+  background-color: #eef;
+  padding: 10px;
+  border-radius: 5px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+#historyModal .modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* ==========================
+   RESPONSIVENESS TUNING
+========================== */
+@media (max-width: 768px) {
+  .form-row label {
+    flex: 1 1 100%;
+  }
+
+  .form-row input,
+  .form-row select {
+    flex: 1 1 100%;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  #buttonRow button {
+    flex: 1 1 45%;
+  }
+
+  .modal-content {
+    margin-top: 30%;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  body {
+    padding: 0.5rem;
+  }
+  form {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
