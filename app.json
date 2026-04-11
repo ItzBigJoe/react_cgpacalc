@@ -1,31 +1,28 @@
 {
   "expo": {
-    "name": "CGPA Calculator",
-    "slug": "cgpa-calculator",
+    "name": "ScholarSuite",
+    "slug": "scholarsuite",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
-    "sdkVersion": "49.0.0",
-    "updates": {
-      "fallbackToCacheTimeout": 0
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0056b3"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true
+    "android": {
+      "package": "com.itzbigjoe.scholarsuite",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0056b3"
+      },
+      "softwareKeyboardLayoutMode": "adjustResize"
     },
     "extra": {
       "eas": {
         "projectId": "44a9298f-19e5-4d4e-a21a-eef7d31f1e7a"
       }
-    },
-    "android": {
-      "package": "com.itzbigjoe.cgpacalculator"
     }
   }
 }

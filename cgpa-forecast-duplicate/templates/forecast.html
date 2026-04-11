@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGPA Forecast & Goals - Duplicate Module</title>
+    <link rel="stylesheet" href="../static/forecast-styles.css">
+</head>
+<body>
+    <div class="forecast-container">
+        <header class="forecast-header">
+            <h1>CGPA Forecast & Goals</h1>
+            <p>Duplicate Module - Calculate required grades to reach your target CGPA</p>
+        </header>
+
+        <main class="forecast-main">
+            <div class="forecast-card">
+                <h2>GPA Goals & Forecast</h2>
+                <div id="gpaGoals">
+                    <form id="goalsForm" class="planner-form">
+                        <div class="form-row">
+                            <label>Current CGPA</label>
+                            <input id="currentCgpa" type="number" step="0.01" min="0" max="5" placeholder="e.g. 3.2" required>
+                        </div>
+                        <div class="form-row">
+                            <label>Completed Units</label>
+                            <input id="completedUnits" type="number" min="0" placeholder="e.g. 45" required>
+                        </div>
+                        <div class="form-row">
+                            <label>Target CGPA</label>
+                            <input id="targetCgpa" type="number" step="0.01" min="0" max="5" placeholder="e.g. 4.0" required>
+                        </div>
+                        <div class="form-row">
+                            <label>Remaining Units</label>
+                            <input id="remainingUnits" type="number" min="0" placeholder="e.g. 30" required>
+                        </div>
+                        <button type="submit">Calculate Required Grades</button>
+                    </form>
+                    <div id="forecastResult"></div>
+                </div>
+                <small>Get smart recommendations on grades needed to reach your goal.</small>
+            </div>
+
+            <div class="forecast-card">
+                <h2>School Type Selection</h2>
+                <div id="schoolTypeSelection">
+                    <div class="school-options">
+                        <label class="school-option">
+                            <input type="radio" name="schoolType" value="0" checked>
+                            <span>University (5.0 Scale)</span>
+                        </label>
+                        <label class="school-option">
+                            <input type="radio" name="schoolType" value="1">
+                            <span>Polytechnic (4.0 Scale)</span>
+                        </label>
+                    </div>
+                </div>
+                <small>Select your institution type for accurate calculations.</small>
+            </div>
+        </main>
+    </div>
+
+    <script src="../static/forecast-script.js"></script>
+</body>
+</html>

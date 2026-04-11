@@ -15,7 +15,7 @@
         <button class="history-button" onclick="viewHistory(history)">History</button>
     </div>
 
-    <form id="cgpaform" action="/calculate" method="post">
+    <form id="cgpaform">
         <fieldset>
             <legend>School Category</legend>
             <div class="schooltype">
@@ -58,7 +58,7 @@
 
     <div id="namePrompt" class="modal small-overlay">
         <div class="modal-content">
-            <p>Enter the name you wish to save your result with:</p>
+            <label for="saveName">Enter the name you wish to save your result with:</label>
             <input type="text" id="saveName" placeholder="Enter name here" style="width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc;">
             <div class="modal-buttons">
                 <button id="saveNameBtn">Save</button>
@@ -71,11 +71,13 @@
   <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
     <h3>Your Saved CGPA History</h3>
     <div style="margin-bottom: 15px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+      <label for="sortSelect" style="display:none;">Sort by:</label>
       <select id="sortSelect" onchange="handleSortChange()" style="padding: 8px; border-radius: 5px;">
         <option value="date" selected>Sort by Date (Newest First)</option>
         <option value="name">Sort by Name (A–Z)</option>
       </select>
 
+      <label for="searchInput" style="display:none;">Search:</label>
       <input type="text" id="searchInput" oninput="handleSortChange()" placeholder="Search by name..."
         style="padding: 8px; border-radius: 5px; border: 1px solid #ccc; width: 200px;">
     </div>
