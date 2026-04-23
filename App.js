@@ -31,6 +31,8 @@ import { Picker } from '@react-native-picker/picker';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -39,6 +41,26 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// System alarm sounds configuration
+const SYSTEM_ALARM_SOUNDS = [
+  { label: 'Default Alarm', value: 'default' },
+  { label: 'Alarm Clock', value: 'alarm_clock' },
+  { label: 'Ascending', value: 'ascending' },
+  { label: 'Bark', value: 'bark' },
+  { label: 'Bell Tower', value: 'bell_tower' },
+  { label: 'Digital', value: 'digital' },
+  { label: 'Echo', value: 'echo' },
+  { label: 'Hello', value: 'hello' },
+  { label: 'Input', value: 'input' },
+  { label: 'Jiggle', value: 'jiggle' },
+  { label: 'Mechanical', value: 'mechanical' },
+  { label: 'Presto', value: 'presto' },
+  { label: 'Siren', value: 'siren' },
+  { label: 'Tilt', value: 'tilt' },
+  { label: 'Wobble', value: 'wobble' },
+  { label: 'Custom Sound', value: 'custom' },
+];
 
 
 const UNIVERSITY_GRADES = [
@@ -872,6 +894,8 @@ function TodoListScreen({ navigation }) {
   const [selectedHour, setSelectedHour] = useState('08');
   const [selectedMinute, setSelectedMinute] = useState('00');
   const [selectedPeriod, setSelectedPeriod] = useState('AM');
+  const [selectedAlarmSound, setSelectedAlarmSound] = useState('default');
+  const [customSoundUri, setCustomSoundUri] = useState('');
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -884,17 +908,44 @@ function TodoListScreen({ navigation }) {
   const loadTasks = async () => {
     try {
       const stored = await AsyncStorage.getItem('@todo_tasks');
-      if (stored) setTasks(JSON.parse(stored));
+      if (stored) {
+        const tasks = JSON.parse(stored);
+        // Ensure backward compatibility for existing tasks
+        const updatedTasks = tasks.map(task => ({
+          ...task,
+          alarmSound: task.alarmSound || 'default',
+          customSoundUri: task.customSoundUri || '',
+        }));
+        setTasks(updatedTasks);
+      }
     } catch (e) {
       console.error(e);
     }
   };
 
-  const saveTasks = async (updatedTasks) => {
+  const saveTasks = async (updated) => {
     try {
-      await AsyncStorage.setItem('@todo_tasks', JSON.stringify(updatedTasks));
+      await AsyncStorage.setItem('@todo_tasks', JSON.stringify(updated));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const pickCustomSound = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['audio/*', 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setCustomSoundUri(asset.uri);
+        Alert.alert('Success', `Custom sound selected: ${asset.name}`);
+      }
+    } catch (error) {
+      console.error('Error picking sound file:', error);
+      Alert.alert('Error', 'Failed to select sound file. Please try again.');
     }
   };
 
@@ -931,18 +982,28 @@ function TodoListScreen({ navigation }) {
       completed: false,
       dayName: taskDate.toLocaleDateString('en-US', { weekday: 'long' }),
       dateString: `${selectedDay}/${selectedMonth}/${selectedYear}`,
-      timeString: `${selectedHour}:${selectedMinute} ${selectedPeriod}`
+      timeString: `${selectedHour}:${selectedMinute} ${selectedPeriod}`,
+      alarmSound: selectedAlarmSound,
+      customSoundUri: customSoundUri
     };
 
     // Schedule notification for task alarm
     if (Platform.OS !== 'web') {
       try {
+        // Determine the sound to use
+        let notificationSound = 'default';
+        if (selectedAlarmSound === 'custom' && customSoundUri) {
+          notificationSound = customSoundUri;
+        } else if (selectedAlarmSound !== 'default' && selectedAlarmSound !== 'custom') {
+          notificationSound = selectedAlarmSound;
+        }
+
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "ScholarSuite Task Reminder",
             body: `Time for: ${taskTitle}${venue ? ' at ' + venue : ''}`,
             data: { alarmId: id, type: 'todo' },
-            sound: 'default',
+            sound: notificationSound,
           },
           trigger: taskDate,
         });
@@ -1060,6 +1121,40 @@ function TodoListScreen({ navigation }) {
             </View>
           </View>
 
+          <Text style={styles.pickerLabel}>Alarm Sound</Text>
+          <View style={styles.smallInputWrapper}>
+            <Picker
+              selectedValue={selectedAlarmSound}
+              onValueChange={(value) => {
+                setSelectedAlarmSound(value);
+                if (value !== 'custom') {
+                  setCustomSoundUri('');
+                }
+              }}
+              style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor="#0056b3"
+              itemStyle={styles.pickerItem}
+            >
+              {SYSTEM_ALARM_SOUNDS.map(sound => (
+                <Picker.Item key={sound.value} label={sound.label} value={sound.value} color="#333" />
+              ))}
+            </Picker>
+          </View>
+
+          {selectedAlarmSound === 'custom' && (
+            <View style={styles.customSoundContainer}>
+              <TouchableOpacity style={styles.customSoundButton} onPress={pickCustomSound}>
+                <Text style={styles.customSoundButtonText}>
+                  {customSoundUri ? 'Change Custom Sound' : 'Select Custom Sound'}
+                </Text>
+              </TouchableOpacity>
+              {customSoundUri ? (
+                <Text style={styles.customSoundLabel}>Custom sound selected</Text>
+              ) : null}
+            </View>
+          )}
+
           <TouchableOpacity style={styles.actionButton} onPress={addTask}>
             <Text style={styles.buttonText}>Schedule Task</Text>
           </TouchableOpacity>
@@ -1105,6 +1200,8 @@ function RemindersScreen({ navigation }) {
   const [selectedMinute, setSelectedMinute] = useState('00');
   const [selectedPeriod, setSelectedPeriod] = useState('AM');
   const [snoozeDuration, setSnoozeDuration] = useState('5');
+  const [selectedAlarmSound, setSelectedAlarmSound] = useState('default');
+  const [customSoundUri, setCustomSoundUri] = useState('');
 
   useEffect(() => {
     loadReminders();
@@ -1121,7 +1218,16 @@ function RemindersScreen({ navigation }) {
   const loadReminders = async () => {
     try {
       const stored = await AsyncStorage.getItem('@reminders');
-      if (stored) setReminders(JSON.parse(stored));
+      if (stored) {
+        const reminders = JSON.parse(stored);
+        // Ensure backward compatibility for existing alarms
+        const updatedReminders = reminders.map(reminder => ({
+          ...reminder,
+          alarmSound: reminder.alarmSound || 'default',
+          customSoundUri: reminder.customSoundUri || '',
+        }));
+        setReminders(updatedReminders);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -1132,6 +1238,24 @@ function RemindersScreen({ navigation }) {
       await AsyncStorage.setItem('@reminders', JSON.stringify(updated));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const pickCustomSound = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['audio/*', 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setCustomSoundUri(asset.uri);
+        Alert.alert('Success', `Custom sound selected: ${asset.name}`);
+      }
+    } catch (error) {
+      console.error('Error picking sound file:', error);
+      Alert.alert('Error', 'Failed to select sound file. Please try again.');
     }
   };
 
@@ -1165,12 +1289,20 @@ function RemindersScreen({ navigation }) {
 
     if (Platform.OS !== 'web') {
       try {
+        // Determine the sound to use
+        let notificationSound = 'default';
+        if (selectedAlarmSound === 'custom' && customSoundUri) {
+          notificationSound = customSoundUri;
+        } else if (selectedAlarmSound !== 'default' && selectedAlarmSound !== 'custom') {
+          notificationSound = selectedAlarmSound;
+        }
+
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "ScholarSuite Alarm",
             body: newReminder,
             data: { alarmId: id },
-            sound: 'default',
+            sound: notificationSound,
           },
           trigger,
         });
@@ -1183,7 +1315,9 @@ function RemindersScreen({ navigation }) {
       id,
       title: newReminder,
       time: timeString,
-      snooze: snoozeDuration
+      snooze: snoozeDuration,
+      alarmSound: selectedAlarmSound,
+      customSoundUri: customSoundUri
     };
 
     const updated = [...reminders, newAlarm];
@@ -1267,7 +1401,40 @@ function RemindersScreen({ navigation }) {
             </View>
           </View>
 
-          
+          <Text style={styles.pickerLabel}>Alarm Sound</Text>
+          <View style={styles.smallInputWrapper}>
+            <Picker
+              selectedValue={selectedAlarmSound}
+              onValueChange={(value) => {
+                setSelectedAlarmSound(value);
+                if (value !== 'custom') {
+                  setCustomSoundUri('');
+                }
+              }}
+              style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor="#0056b3"
+              itemStyle={styles.pickerItem}
+            >
+              {SYSTEM_ALARM_SOUNDS.map(sound => (
+                <Picker.Item key={sound.value} label={sound.label} value={sound.value} color="#333" />
+              ))}
+            </Picker>
+          </View>
+
+          {selectedAlarmSound === 'custom' && (
+            <View style={styles.customSoundContainer}>
+              <TouchableOpacity style={styles.customSoundButton} onPress={pickCustomSound}>
+                <Text style={styles.customSoundButtonText}>
+                  {customSoundUri ? 'Change Custom Sound' : 'Select Custom Sound'}
+                </Text>
+              </TouchableOpacity>
+              {customSoundUri ? (
+                <Text style={styles.customSoundLabel}>Custom sound selected</Text>
+              ) : null}
+            </View>
+          )}
+
           <Text style={styles.pickerLabel}>Snooze Duration (minutes)</Text>
           <View style={styles.smallInputWrapper}>
             <Picker
@@ -2059,5 +2226,27 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#333',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  customSoundContainer: {
+    marginBottom: 15,
+  },
+  customSoundButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  customSoundButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  customSoundLabel: {
+    fontSize: 14,
+    color: '#28a745',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
