@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -11,11 +11,35 @@ import {
   TouchableOpacity,
   View,
   Modal,
+  AppState,
+  Dimensions,
 } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const scale = width / 375; // Based on standard iPhone 6/7/8 width
+
+function normalize(size) {
+  const newSize = size * scale;
+  if (Platform.OS === 'ios') {
+    return Math.round(newSize);
+  } else {
+    return Math.round(newSize) - 2;
+  }
+}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 
 const UNIVERSITY_GRADES = [
   { label: 'A', value: '5' },
@@ -100,11 +124,18 @@ function MainHomeScreen({ navigation }) {
       color: '#6f42c1',
     },
     {
-      title: 'Games',
-      subtitle: 'Quick brain exercises',
-      icon: '🎮',
-      screen: 'Games',
+      title: 'Reminder Alarm',
+      subtitle: 'Set and track your academic schedule',
+      icon: '⏰',
+      screen: 'Reminders',
       color: '#fd7e14',
+    },
+    {
+      title: 'To-Do List',
+      subtitle: "Don't wish it, Do it",
+      icon: '📝',
+      screen: 'TodoList',
+      color: '#e83e8c',
     },
   ];
 
@@ -141,13 +172,6 @@ function MainHomeScreen({ navigation }) {
             </TouchableOpacity>
           ))}
         </View>
-
-        <TouchableOpacity
-          style={styles.historyMenuButton}
-          onPress={() => navigation.navigate('History')}
-        >
-          <Text style={styles.historyMenuButtonText}>📜 View Saved History</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -263,7 +287,7 @@ function CalculatorScreen({ navigation, route }) {
 
           <View style={styles.card}>
             {courses.map((course, index) => (
-              <View key={`${index}-${course.code}`} style={styles.courseRow}>
+              <View key={index} style={styles.courseRow}>
                 <Text style={styles.courseLabel}>Course {index + 1}</Text>
                 <TextInput
                   style={styles.input}
@@ -836,67 +860,469 @@ function MathCalculatorScreen({ navigation }) {
   );
 }
 
-function GamesScreen({ navigation }) {
-  const games = [
-    {
-      title: 'Sudoku',
-      subtitle: 'The classic number puzzle',
-      icon: '🔢',
-      color: '#4dabf7',
-    },
-    {
-      title: 'Tic-Tac-Toe',
-      subtitle: 'X and O battle',
-      icon: '❌',
-      color: '#ff6b6b',
-    },
-    {
-      title: 'Candy Crush',
-      subtitle: 'Sweet match-3 fun',
-      icon: '🍬',
-      color: '#f06595',
-    },
-    {
-      title: 'Block Blaster',
-      subtitle: 'Grid block puzzle',
-      icon: '🧱',
-      color: '#cc5de8',
-    },
-    {
-      title: 'Chess',
-      subtitle: 'Grandmaster strategy',
-      icon: '♟️',
-      color: '#343a40',
-    },
-    {
-      title: 'Checkers',
-      subtitle: 'Classic board game',
-      icon: '⚪',
-      color: '#fa5252',
-    },
-  ];
+function TodoListScreen({ navigation }) {
+  const [tasks, setTasks] = useState([]);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [venue, setVenue] = useState('');
+
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate().toString().padStart(2, '0'));
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+
+  const [selectedHour, setSelectedHour] = useState('08');
+  const [selectedMinute, setSelectedMinute] = useState('00');
+  const [selectedPeriod, setSelectedPeriod] = useState('AM');
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    loadTasks();
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('@todo_tasks');
+      if (stored) setTasks(JSON.parse(stored));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveTasks = async (updatedTasks) => {
+    try {
+      await AsyncStorage.setItem('@todo_tasks', JSON.stringify(updatedTasks));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const addTask = async () => {
+    if (taskTitle.trim() === '') {
+      Alert.alert('Error', 'Please enter a task title');
+      return;
+    }
+
+    let hour24 = parseInt(selectedHour, 10);
+    if (selectedPeriod === 'PM' && hour24 !== 12) hour24 += 12;
+    if (selectedPeriod === 'AM' && hour24 === 12) hour24 = 0;
+
+    const taskDate = new Date(
+      parseInt(selectedYear, 10),
+      parseInt(selectedMonth, 10) - 1,
+      parseInt(selectedDay, 10),
+      hour24,
+      parseInt(selectedMinute, 10),
+      0
+    );
+
+    if (taskDate <= new Date()) {
+      Alert.alert('Error', 'Cannot set task in the past');
+      return;
+    }
+
+    const id = Date.now().toString();
+    const newTask = {
+      id,
+      title: taskTitle,
+      venue: venue || 'Not Specified',
+      targetDate: taskDate.toISOString(),
+      completed: false,
+      dayName: taskDate.toLocaleDateString('en-US', { weekday: 'long' }),
+      dateString: `${selectedDay}/${selectedMonth}/${selectedYear}`,
+      timeString: `${selectedHour}:${selectedMinute} ${selectedPeriod}`
+    };
+
+    // Schedule notification for task alarm
+    if (Platform.OS !== 'web') {
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "ScholarSuite Task Reminder",
+            body: `Time for: ${taskTitle}${venue ? ' at ' + venue : ''}`,
+            data: { alarmId: id, type: 'todo' },
+            sound: 'default',
+          },
+          trigger: taskDate,
+        });
+      } catch (e) {
+        console.warn('Notification scheduling failed', e);
+      }
+    }
+
+    const updated = [...tasks, newTask];
+    setTasks(updated);
+    saveTasks(updated);
+
+    // Reset fields
+    setTaskTitle('');
+    setVenue('');
+    Alert.alert('Success', 'Task scheduled successfully!');
+  };
+
+  const deleteTask = (id) => {
+    const updated = tasks.filter(t => t.id !== id);
+    setTasks(updated);
+    saveTasks(updated);
+  };
+
+  const formatCountdown = (targetDateStr) => {
+    const target = new Date(targetDateStr);
+    const diff = target - currentTime;
+    if (diff <= 0) return '00:00:00';
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const months = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const years = [new Date().getFullYear().toString(), (new Date().getFullYear() + 1).toString()];
+
+  const hoursArr = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const minutesArr = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+  const periods = ['AM', 'PM'];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.menuGrid}>
-          {games.map((game, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.menuCard, { borderLeftColor: game.color }]}
-              onPress={() => navigation.navigate('ComingSoon', { feature: game.title })}
-            >
-              <View style={styles.menuCardContent}>
-                <Text style={styles.menuIcon}>{game.icon}</Text>
-                <View>
-                  <Text style={styles.menuItemTitle}>{game.title}</Text>
-                  <Text style={styles.menuItemSubtitle}>{game.subtitle}</Text>
-                </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Add New Task</Text>
+
+          <TextInput
+            style={styles.input}
+            value={taskTitle}
+            onChangeText={setTaskTitle}
+            placeholder="Task Title / Course Name"
+            placeholderTextColor="#777"
+          />
+
+          <TextInput
+            style={styles.input}
+            value={venue}
+            onChangeText={setVenue}
+            placeholder="Venue (Optional)"
+            placeholderTextColor="#777"
+          />
+
+          <Text style={styles.pickerLabel}>Date (DD/MM/YYYY)</Text>
+          <View style={styles.timePickerContainer}>
+            <View style={styles.pickerColumn}>
+              <View style={styles.smallInputWrapper}>
+                <Picker selectedValue={selectedDay} onValueChange={setSelectedDay} style={styles.picker} mode="dropdown" dropdownIconColor="#0056b3">
+                  {days.map(d => <Picker.Item key={d} label={d} value={d} color="#333" />)}
+                </Picker>
               </View>
-            </TouchableOpacity>
-          ))}
+            </View>
+            <View style={styles.pickerColumn}>
+              <View style={styles.smallInputWrapper}>
+                <Picker selectedValue={selectedMonth} onValueChange={setSelectedMonth} style={styles.picker} mode="dropdown" dropdownIconColor="#0056b3">
+                  {months.map(m => <Picker.Item key={m} label={m} value={m} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+            <View style={[styles.pickerColumn, { flex: 1.5 }]}>
+              <View style={styles.smallInputWrapper}>
+                <Picker selectedValue={selectedYear} onValueChange={setSelectedYear} style={styles.picker} mode="dropdown" dropdownIconColor="#0056b3">
+                  {years.map(y => <Picker.Item key={y} label={y} value={y} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.pickerLabel}>Time</Text>
+          <View style={styles.timePickerContainer}>
+            <View style={styles.pickerColumn}>
+              <View style={styles.smallInputWrapper}>
+                <Picker selectedValue={selectedHour} onValueChange={setSelectedHour} style={styles.picker} mode="dropdown" dropdownIconColor="#0056b3" itemStyle={styles.pickerItem}>
+                  {hoursArr.map(h => <Picker.Item key={h} label={h} value={h} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+            <Text style={styles.timeSeparator}>:</Text>
+            <View style={styles.pickerColumn}>
+              <View style={styles.smallInputWrapper}>
+                <Picker selectedValue={selectedMinute} onValueChange={setSelectedMinute} style={styles.picker} mode="dropdown" dropdownIconColor="#0056b3" itemStyle={styles.pickerItem}>
+                  {minutesArr.map(m => <Picker.Item key={m} label={m} value={m} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+            <View style={[styles.pickerColumn, { marginLeft: 10 }]}>
+              <View style={styles.smallInputWrapper}>
+                <Picker selectedValue={selectedPeriod} onValueChange={setSelectedPeriod} style={styles.picker} mode="dropdown" dropdownIconColor="#0056b3" itemStyle={styles.pickerItem}>
+                  {periods.map(p => <Picker.Item key={p} label={p} value={p} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.actionButton} onPress={addTask}>
+            <Text style={styles.buttonText}>Schedule Task</Text>
+          </TouchableOpacity>
         </View>
+
+        <Text style={styles.sectionTitle}>Active Tasks & Countdowns</Text>
+        {tasks.length === 0 ? (
+          <Text style={styles.emptyText}>No tasks scheduled.</Text>
+        ) : (
+          tasks.map(task => (
+            <View key={task.id} style={[styles.todoItem, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                <Text style={[styles.todoText, { fontSize: 18, color: '#0056b3' }]}>{task.title}</Text>
+                <TouchableOpacity onPress={() => deleteTask(task.id)}>
+                  <Text style={{ fontSize: 20 }}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{ fontSize: 14, color: '#555', marginTop: 4 }}>
+                📍 Venue: {task.venue}
+              </Text>
+
+              <Text style={{ fontSize: 14, color: '#555' }}>
+                📅 {task.dayName}, {task.dateString} at {task.timeString}
+              </Text>
+
+              <View style={styles.countdownContainer}>
+                <Text style={styles.countdownLabel}>Time Left:</Text>
+                <Text style={styles.countdownValue}>{formatCountdown(task.targetDate)}</Text>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function RemindersScreen({ navigation }) {
+  const [reminders, setReminders] = useState([]);
+  const [newReminder, setNewReminder] = useState('');
+  const [selectedHour, setSelectedHour] = useState('08');
+  const [selectedMinute, setSelectedMinute] = useState('00');
+  const [selectedPeriod, setSelectedPeriod] = useState('AM');
+  const [snoozeDuration, setSnoozeDuration] = useState('5');
+
+  useEffect(() => {
+    loadReminders();
+    setupNotifications();
+  }, []);
+
+  const setupNotifications = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please enable notifications to use alarms.');
+    }
+  };
+
+  const loadReminders = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('@reminders');
+      if (stored) setReminders(JSON.parse(stored));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveReminders = async (updated) => {
+    try {
+      await AsyncStorage.setItem('@reminders', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  
+  
+  const addReminder = async () => {
+    if (newReminder.trim() === '') {
+      Alert.alert('Error', 'Please enter a title for your reminder');
+      return;
+    }
+
+    const id = Date.now().toString();
+    const timeString = `${selectedHour}:${selectedMinute} ${selectedPeriod}`;
+
+    let hour24 = parseInt(selectedHour, 10);
+    if (selectedPeriod === 'PM' && hour24 !== 12) hour24 += 12;
+    if (selectedPeriod === 'AM' && hour24 === 12) hour24 = 0;
+
+    const now = new Date();
+    const scheduledTime = new Date();
+    scheduledTime.setHours(hour24);
+    scheduledTime.setMinutes(parseInt(selectedMinute, 10));
+    scheduledTime.setSeconds(0);
+    scheduledTime.setMilliseconds(0);
+
+    if (scheduledTime <= now) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+    }
+
+    const trigger = scheduledTime;
+
+    if (Platform.OS !== 'web') {
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "ScholarSuite Alarm",
+            body: newReminder,
+            data: { alarmId: id },
+            sound: 'default',
+          },
+          trigger,
+        });
+      } catch (e) {
+        console.warn('Notification scheduling failed', e);
+      }
+    }
+
+    const newAlarm = {
+      id,
+      title: newReminder,
+      time: timeString,
+      snooze: snoozeDuration
+    };
+
+    const updated = [...reminders, newAlarm];
+    setReminders(updated);
+    saveReminders(updated);
+    setNewReminder('');
+    Alert.alert('Success', `Alarm set for ${timeString}`);
+  };
+
+  const deleteReminder = async (id) => {
+    const updated = reminders.filter(r => r.id !== id);
+    setReminders(updated);
+    saveReminders(updated);
+    // Cancel notification if possible (Expo Notifications requires identifier)
+  };
+
+  const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+  const periods = ['AM', 'PM'];
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Set New Alarm</Text>
+
+          <TextInput
+            style={styles.input}
+            value={newReminder}
+            onChangeText={setNewReminder}
+            placeholder="What's this alarm for?"
+            placeholderTextColor="#777"
+          />
+
+          <View style={styles.timePickerContainer}>
+            <View style={styles.pickerColumn}>
+              <Text style={styles.pickerLabel}>Hour</Text>
+              <View style={styles.smallInputWrapper}>
+                <Picker
+                  selectedValue={selectedHour}
+                  onValueChange={setSelectedHour}
+                  style={styles.picker}
+                  mode="dropdown"
+                  dropdownIconColor="#0056b3"
+                  itemStyle={styles.pickerItem}
+                >
+                  {hours.map(h => <Picker.Item key={h} label={h} value={h} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+            <Text style={styles.timeSeparator}>:</Text>
+            <View style={styles.pickerColumn}>
+              <Text style={styles.pickerLabel}>Minute</Text>
+              <View style={styles.smallInputWrapper}>
+                <Picker
+                  selectedValue={selectedMinute}
+                  onValueChange={setSelectedMinute}
+                  style={styles.picker}
+                  mode="dropdown"
+                  dropdownIconColor="#0056b3"
+                  itemStyle={styles.pickerItem}
+                >
+                  {minutes.map(m => <Picker.Item key={m} label={m} value={m} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+            <View style={[styles.pickerColumn, { marginLeft: 10 }]}>
+              <Text style={styles.pickerLabel}>AM/PM</Text>
+              <View style={styles.smallInputWrapper}>
+                <Picker
+                  selectedValue={selectedPeriod}
+                  onValueChange={setSelectedPeriod}
+                  style={styles.picker}
+                  mode="dropdown"
+                  dropdownIconColor="#0056b3"
+                  itemStyle={styles.pickerItem}
+                >
+                  {periods.map(p => <Picker.Item key={p} label={p} value={p} color="#333" />)}
+                </Picker>
+              </View>
+            </View>
+          </View>
+
+          
+          <Text style={styles.pickerLabel}>Snooze Duration (minutes)</Text>
+          <View style={styles.smallInputWrapper}>
+            <Picker
+              selectedValue={snoozeDuration}
+              onValueChange={setSnoozeDuration}
+              style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor="#0056b3"
+            >
+              {['2', '5', '10', '15', '20'].map(d => <Picker.Item key={d} label={`${d} mins`} value={d} color="#333" />)}
+            </Picker>
+          </View>
+
+          <TouchableOpacity style={styles.actionButton} onPress={addReminder}>
+            <Text style={styles.buttonText}>Schedule Alarm</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>Upcoming Alarms</Text>
+        {reminders.length === 0 ? (
+          <Text style={styles.emptyText}>No alarms set.</Text>
+        ) : (
+          reminders.map(rem => (
+            <View key={rem.id} style={styles.todoItem}>
+              <View style={styles.todoTextContainer}>
+                <Text style={styles.todoText}>⏰ {rem.time}</Text>
+                <Text style={[styles.todoText, { fontSize: 14, color: '#666' }]}>{rem.title}</Text>
+              </View>
+              <TouchableOpacity onPress={() => deleteReminder(rem.id)}>
+                <Text style={{ fontSize: 20 }}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      <Modal visible={isRinging} transparent animationType="slide">
+        <View style={styles.alarmOverlay}>
+          <View style={styles.alarmModal}>
+            <Text style={styles.alarmIcon}>🔔</Text>
+            <Text style={styles.alarmTitle}>Alarm Ringing!</Text>
+            <Text style={styles.alarmSubject}>{activeAlarm?.title}</Text>
+            <Text style={styles.alarmTime}>{activeAlarm?.time}</Text>
+
+            <View style={styles.alarmButtonContainer}>
+              <TouchableOpacity style={[styles.alarmButton, styles.snoozeBtn]} onPress={handleSnooze}>
+                <Text style={styles.buttonText}>Snooze ({snoozeDuration}m)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.alarmButton, styles.stopBtn]} onPress={stopAlarm}>
+                <Text style={styles.buttonText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1082,9 +1508,14 @@ export default function App() {
           options={{ title: 'Math Calculator' }}
         />
         <Stack.Screen
-          name="Games"
-          component={GamesScreen}
-          options={{ title: 'Game Center' }}
+          name="Reminders"
+          component={RemindersScreen}
+          options={{ title: 'Study Reminders' }}
+        />
+        <Stack.Screen
+          name="TodoList"
+          component={TodoListScreen}
+          options={{ title: 'To-Do List' }}
         />
         <Stack.Screen
           name="ComingSoon"
@@ -1116,7 +1547,7 @@ const styles = StyleSheet.create({
     marginTop: Platform.OS === 'android' ? 10 : 0,
   },
   title: {
-    fontSize: 28,
+    fontSize: normalize(24),
     color: '#0056b3',
     fontWeight: '700',
   },
@@ -1216,10 +1647,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   picker: {
-    height: 48,
+    height: 60,
+    width: '100%',
+    color: '#333',
+    fontSize: 16,
   },
   pickerItem: {
-    height: 48,
+    height: 50,
+    fontSize: 16,
+    color: '#333',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -1332,6 +1768,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 12,
     backgroundColor: '#fff',
+    width: '100%',
+    minHeight: 60,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   historyPicker: {
     height: 48,
@@ -1405,7 +1845,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   menuTitleLarge: {
-    fontSize: 32,
+    fontSize: normalize(28),
     fontWeight: '800',
     color: '#333',
   },
@@ -1431,14 +1871,15 @@ const styles = StyleSheet.create({
     fontSize: 34,
   },
   menuItemTitle: {
-    fontSize: 18,
+    fontSize: normalize(16),
     fontWeight: '700',
     color: '#333',
   },
   menuItemSubtitle: {
-    fontSize: 14,
+    fontSize: normalize(13),
     color: '#777',
     marginTop: 2,
+    flexWrap: 'wrap',
   },
   historyMenuButton: {
     marginTop: 30,
@@ -1477,7 +1918,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   calcDisplayText: {
-    fontSize: 42,
+    fontSize: normalize(36),
     fontWeight: '700',
     color: '#212529',
   },
@@ -1503,5 +1944,120 @@ const styles = StyleSheet.create({
   calcButtonText: {
     fontSize: 20,
     fontWeight: '600',
+  },
+  todoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  todoTextContainer: {
+    flex: 1,
+  },
+  todoText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  timePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  pickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pickerLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  timeSeparator: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginHorizontal: 10,
+    marginTop: 20,
+  },
+  alarmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alarmModal: {
+    backgroundColor: '#fff',
+    width: '85%',
+    borderRadius: 24,
+    padding: 30,
+    alignItems: 'center',
+  },
+  alarmIcon: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  alarmTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0056b3',
+  },
+  alarmSubject: {
+    fontSize: 18,
+    color: '#333',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  alarmTime: {
+    fontSize: normalize(44),
+    fontWeight: '900',
+    color: '#000',
+    marginVertical: 20,
+  },
+  alarmButtonContainer: {
+    flexDirection: 'row',
+    gap: 15,
+    marginTop: 20,
+  },
+  alarmButton: {
+    flex: 1,
+    paddingVertical: 18,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  snoozeBtn: {
+    backgroundColor: '#6c757d',
+  },
+  stopBtn: {
+    backgroundColor: '#dc3545',
+  },
+  countdownContainer: {
+    backgroundColor: '#f0f7ff',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0056b3',
+    borderStyle: 'dashed',
+  },
+  countdownLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0056b3',
+  },
+  countdownValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#333',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });
