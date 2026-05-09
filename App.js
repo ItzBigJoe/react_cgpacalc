@@ -14,6 +14,8 @@ import {
   AppState,
   Dimensions,
 } from 'react-native';
+import AdBanner from './components/AdBanner';
+import CustomNativeAd from './components/CustomNativeAd';
 
 const { width } = Dimensions.get('window');
 const scale = width / 375; // Based on standard iPhone 6/7/8 width
@@ -194,6 +196,9 @@ function MainHomeScreen({ navigation }) {
             </TouchableOpacity>
           ))}
         </View>
+        
+        <CustomNativeAd />
+        <AdBanner />
       </ScrollView>
     </SafeAreaView>
   );
@@ -357,6 +362,9 @@ function CalculatorScreen({ navigation, route }) {
               <Text style={styles.buttonText}>Reset</Text>
             </TouchableOpacity>
           </View>
+          
+          <CustomNativeAd />
+          <AdBanner />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -457,6 +465,9 @@ function ResultScreen({ route, navigation }) {
             </View>
           </View>
         </Modal>
+        
+        <CustomNativeAd />
+        <AdBanner />
       </View>
     </SafeAreaView>
   );
@@ -661,6 +672,9 @@ function CgpaTargetsScreen({ navigation }) {
         </View>
 
         {renderResult()}
+        
+        <CustomNativeAd />
+        <AdBanner />
       </ScrollView>
     </SafeAreaView>
   );
@@ -878,6 +892,9 @@ function MathCalculatorScreen({ navigation }) {
           </View>
         </View>
       </View>
+      
+      <CustomNativeAd />
+      <AdBanner />
     </SafeAreaView>
   );
 }
@@ -1202,10 +1219,40 @@ function RemindersScreen({ navigation }) {
   const [snoozeDuration, setSnoozeDuration] = useState('5');
   const [selectedAlarmSound, setSelectedAlarmSound] = useState('default');
   const [customSoundUri, setCustomSoundUri] = useState('');
+  const [isRinging, setIsRinging] = useState(false);
+  const [activeAlarm, setActiveAlarm] = useState(null);
 
   useEffect(() => {
     loadReminders();
     setupNotifications();
+
+    // Set up notification listener for alarm ringing
+    const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      const alarmId = notification.request.content.data?.alarmId;
+      if (alarmId) {
+        const alarm = reminders.find(r => r.id === alarmId);
+        if (alarm) {
+          setActiveAlarm(alarm);
+          setIsRinging(true);
+        }
+      }
+    });
+
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const alarmId = response.notification.request.content.data?.alarmId;
+      if (alarmId) {
+        const alarm = reminders.find(r => r.id === alarmId);
+        if (alarm) {
+          setActiveAlarm(alarm);
+          setIsRinging(true);
+        }
+      }
+    });
+
+    return () => {
+      receivedSubscription.remove();
+      responseSubscription.remove();
+    };
   }, []);
 
   const setupNotifications = async () => {
@@ -1332,6 +1379,34 @@ function RemindersScreen({ navigation }) {
     setReminders(updated);
     saveReminders(updated);
     // Cancel notification if possible (Expo Notifications requires identifier)
+  };
+
+  const handleSnooze = () => {
+    if (activeAlarm) {
+      const snoozeMinutes = parseInt(snoozeDuration, 10);
+      const snoozeTime = new Date();
+      snoozeTime.setMinutes(snoozeTime.getMinutes() + snoozeMinutes);
+      
+      // Schedule snoozed notification
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: "ScholarSuite Alarm",
+          body: activeAlarm.title,
+          data: { alarmId: activeAlarm.id },
+          sound: activeAlarm.alarmSound === 'custom' && activeAlarm.customSoundUri ? activeAlarm.customSoundUri : activeAlarm.alarmSound,
+        },
+        trigger: snoozeTime,
+      });
+      
+      setIsRinging(false);
+      setActiveAlarm(null);
+      Alert.alert('Snoozed', `Alarm snoozed for ${snoozeMinutes} minutes`);
+    }
+  };
+
+  const stopAlarm = () => {
+    setIsRinging(false);
+    setActiveAlarm(null);
   };
 
   const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));

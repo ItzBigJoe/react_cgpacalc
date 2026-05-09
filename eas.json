@@ -1,25 +1,16 @@
 {
-  "cli": {
-    "version": ">= 18.5.0",
-    "appVersionSource": "remote"
-  },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
     "preview": {
-      "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "image": "ubuntu-20.04-jdk-11-ndk-r23b"
       }
     },
     "production": {
-      "autoIncrement": true
+      "android": {
+        "buildType": "app-bundle",
+        "image": "ubuntu-20.04-jdk-11-ndk-r23b"
+      }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }
